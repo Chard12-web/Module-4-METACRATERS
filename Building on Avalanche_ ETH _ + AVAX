@@ -1,0 +1,72 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+import "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/token/ERC20/ERC20.sol";
+import "./ownable.sol";
+
+contract DegenToken is ERC20, Ownable {
+    struct GunInfo {
+        uint256 price;
+        bool isRedeemed;
+        bool isClaimed;
+    }
+
+    mapping(uint256 => uint256) public gunPrices;
+    mapping(address => mapping(uint256 => GunInfo)) public playerGuns;
+
+    event GunRedeemed(address indexed player, uint256 indexed gunId, uint256 amount);
+    event GunClaimed(address indexed player, uint256 indexed gunId);
+
+    constructor(uint256 initialSupply) ERC20("Degen", "DGN") {
+        _mint(msg.sender, initialSupply * 10 ** decimals());
+        initializeGunPrices();
+    }
+
+    function initializeGunPrices() internal {
+        setGunPrice(45, 6000);   // Gun 1: Dessert Eagle - Price: 6000 Coins
+        setGunPrice(47, 8000);   // Gun 2: Mini Uzi - Price: 8000 Coins
+        setGunPrice(16, 10000);  // Gun 3: M60 - Price: 10000 Coins
+        setGunPrice(24, 20000);  // Gun 4: Gatling Gun - Price: 20000 Coins
+    }
+
+    function mint(address account, uint256 amount) public {
+        _mint(account, amount);
+    }
+
+    function burn(uint256 amount) public {
+        _burn(msg.sender, amount);
+    }
+
+    function setGunPrice(uint256 gunId, uint256 price) public onlyOwner {
+        gunPrices[gunId] = price;
+    }
+
+    function redeemGun(uint256 gunId) public {
+        uint256 price = gunPrices[gunId];
+        require(price > 0, "Gun price not set");
+        require(balanceOf(msg.sender) >= price, "Insufficient balance");
+
+        _transfer(msg.sender, owner(), price);
+
+        playerGuns[msg.sender][gunId] = GunInfo({
+            price: price,
+            isRedeemed: true,
+            isClaimed: false
+        });
+
+        emit GunRedeemed(msg.sender, gunId, price);
+    }
+
+    function claimGun(uint256 gunId) public {
+        GunInfo storage gun = playerGuns[msg.sender][gunId];
+        require(gun.isRedeemed, "Gun not redeemed");
+        require(!gun.isClaimed, "Gun already claimed");
+
+        gun.isClaimed = true;
+
+        // Logic to provide the actual gun to the player should be implemented here
+        // For example, interacting with an NFT contract or in-game inventory system
+
+        emit GunClaimed(msg.sender, gunId);
+    }
+}
